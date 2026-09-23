@@ -768,9 +768,14 @@ async function pullRemote(){
   }
 }
 
-window.addEventListener('storage',e=>{if(CLOUD_KEYS.includes(e.key))render(currentView);});
-ensureWeeklyTasks();
-updateBuildTimestamp();
-render();
-hydrate();
-setInterval(pullRemote,15000);
+let appBooted=false;
+window.addEventListener('storage',e=>{if(appBooted&&CLOUD_KEYS.includes(e.key))render(currentView);});
+window.startAtomBccApp=()=>{
+  if(appBooted)return;
+  appBooted=true;
+  ensureWeeklyTasks();
+  updateBuildTimestamp();
+  render();
+  hydrate();
+  setInterval(pullRemote,15000);
+};
