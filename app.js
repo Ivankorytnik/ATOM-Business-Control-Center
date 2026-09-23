@@ -88,7 +88,7 @@ const AUTO_DOD={
 };
 
 const app=document.getElementById('app');
-let currentView='overview';
+let currentView='tasks';
 let clockTimer=null;
 let syncTimer=null;
 let hydrated=false;
