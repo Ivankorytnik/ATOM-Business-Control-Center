@@ -414,45 +414,57 @@ function deleteTaskFromManager(id){
   render('tasks');
 }
 
+function isoWeekNumber(date){
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  const day=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-day);
+  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+}
 function gantt(){
-  const tasks=weeklyTasks().filter(t=>t.startDate&&t.dueDate);
-  if(!tasks.length){
-    return '<div class="section-title"><h2>Диаграмма Ганта по задачам</h2></div><div class="empty">Нет задач с датой постановки и сроком. Добавьте задачи в Weekly Project Review.</div>';
-  }
-  const starts=tasks.map(t=>dateStartMs(t.startDate));
-  const ends=tasks.map(t=>dateEndMs(t.dueDate));
-  let start=mondayStart(Math.min(...starts,prevReviewDate().getTime()));
-  let end=Math.max(...ends,nextReviewDate().getTime());
-  const minHorizon=28*86400000;
-  if(end-start<minHorizon)end=start+minHorizon;
-  const horizon=Math.max(1,Math.ceil((end-start)/86400000));
-  const weeks=Math.ceil(horizon/7);
+  const allTasks=weeklyTasks().filter(t=>t.startDate&&t.dueDate);
+  const weeks=12;
+  const start=mondayStart(Date.now());
+  const end=start+weeks*7*86400000;
+  const tasks=allTasks.filter(t=>{
+    const s=dateStartMs(t.startDate),e=dateEndMs(t.dueDate);
+    return e>=start&&s<end;
+  });
   const weekHead=Array.from({length:weeks},(_,i)=>{
     const d=new Date(start+i*7*86400000);
-    return `<div class="gantt-week">${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}</div>`;
+    const week=isoWeekNumber(d);
+    const monday=`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`;
+    return `<div class="gantt-week"><b>Нед. ${week}</b><small>${monday}</small></div>`;
   }).join('');
   const gridStep=100/weeks;
-  const reviewLeft=Math.max(0,Math.min(100,(nextReviewDate().getTime()-start)/(end-start)*100));
+  const nextReview=nextReviewDate().getTime();
+  const reviewVisible=nextReview>=start&&nextReview<end;
+  const reviewLeft=Math.max(0,Math.min(100,(nextReview-start)/(end-start)*100));
   const rows=tasks.sort((a,b)=>dateStartMs(a.startDate)-dateStartMs(b.startDate)).map(t=>{
-    const s=dateStartMs(t.startDate),e=dateEndMs(t.dueDate);
+    const rawStart=dateStartMs(t.startDate),rawEnd=dateEndMs(t.dueDate);
+    const s=Math.max(rawStart,start),e=Math.min(rawEnd,end);
     const left=Math.max(0,(s-start)/(end-start)*100);
-    const width=Math.max(1.2,(e-s)/(end-start)*100);
+    const width=Math.max(.8,(e-s)/(end-start)*100);
     const cls=t.status==='Блокер'?'background:#b94a4a;':t.status==='Готово'?'background:#2f9b75;':'';
+    const clippedLeft=rawStart<start;
+    const clippedRight=rawEnd>end;
+    const clipNote=(clippedLeft||clippedRight)?' · часть периода вне 12 недель':'';
     return `<div class="gantt-row">
-      <div class="gantt-task"><b>${esc(t.title)}</b><small>${esc(t.vertical||'')} · ${esc(t.project||'')} · ${esc(t.owner||'без ответственного')} · ${esc(t.status||'')}</small></div>
+      <div class="gantt-task"><b>${t.number?t.number+'. ':''}${esc(t.title)}</b><small>${esc(t.vertical||'')} · ${esc(t.project||'')} · ${esc(t.owner||'без ответственного')} · ${esc(t.status||'')}${clipNote}</small></div>
       <div class="gantt-track">
         <div class="gantt-grid" style="background:repeating-linear-gradient(to right,transparent 0,transparent calc(${gridStep}% - 1px),var(--line) calc(${gridStep}% - 1px),var(--line) ${gridStep}%)"></div>
-        <div class="gantt-marker" title="Следующее ревью" style="left:${reviewLeft}%"></div>
-        <div class="gantt-bar" style="left:${left}%;width:${width}%;${cls}"></div>
+        ${reviewVisible?`<div class="gantt-marker" title="Следующее ревью" style="left:${reviewLeft}%"></div>`:''}
+        <div class="gantt-bar" style="left:${left}%;width:${Math.min(width,100-left)}%;${cls}"></div>
       </div>
     </div>`;
   }).join('');
+  const hiddenCount=allTasks.length-tasks.length;
   return `
-    <div class="section-title"><h2>Диаграмма Ганта по задачам</h2><small>Контроль сроков между еженедельными ревью</small></div>
-    <div class="callout"><b>Контрольная точка:</b> следующий понедельник, 09:30. Красная вертикальная линия показывает дату следующего ревью.</div>
+    <div class="section-title"><h2>Диаграмма Ганта по задачам</h2><small>12 недель · ${tasks.length} задач в периоде</small></div>
+    <div class="callout"><b>Горизонт:</b> 12 недель от текущей недели. Красная вертикальная линия показывает следующее ревью в понедельник 09:30.${hiddenCount?` За пределами горизонта: ${hiddenCount} задач.`:''}</div>
     <div class="gantt-wrap">
-      <div class="gantt-head"><div class="gantt-task-head">Задача</div><div class="gantt-weeks" style="grid-template-columns:repeat(${weeks},1fr)">${weekHead}</div></div>
-      ${rows}
+      <div class="gantt-head"><div class="gantt-task-head">Задача</div><div class="gantt-weeks" style="grid-template-columns:repeat(12,1fr)">${weekHead}</div></div>
+      ${rows||'<div class="empty">В выбранном 12-недельном периоде задач нет.</div>'}
     </div>
   `;
 }
