@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#0f2526">
+  <title>ATOM BCC | Weekly Project Review</title>
+  <link rel="stylesheet" href="./weekly-review.css?v=0.1.0">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">АТОМ · CMMT · WEEKLY PROJECT REVIEW</div>
+      <h1>Контроль задач от встречи к встрече</h1>
+      <p>B2B · B2G · Каршеринг · Такси</p>
+      <div class="build-meta">
+        <span>Регламент <b>каждый понедельник, 09:30</b></span>
+        <span>Версия <b>v0.1.0 MVP</b></span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a class="btn ghost" href="./index.html">← ATOM BCC</a>
+      <button class="btn primary" id="addTaskBtn">+ Добавить задачу</button>
+    </div>
+  </header>
+
+  <div class="warning">
+    <b>Публичный тестовый контур.</b> Не размещайте конфиденциальные данные АО «КАМА», персональные данные и коммерческую тайну.
+  </div>
+
+  <main class="page">
+    <section class="cycle-card">
+      <div>
+        <div class="label">Текущий цикл контроля</div>
+        <strong id="cycleLabel">—</strong>
+        <div class="muted" id="cycleHint">—</div>
+      </div>
+      <div class="next-review">
+        <div class="label">Следующее ревью</div>
+        <strong id="nextReview">—</strong>
+        <div class="countdown" id="reviewCountdown">—</div>
+      </div>
+      <button class="btn review-btn" id="snapshotBtn">Зафиксировать ревью</button>
+    </section>
+
+    <section class="kpi-grid" id="kpiGrid"></section>
+
+    <section class="toolbar">
+      <div class="view-tabs">
+        <button class="tab active" data-view="tasks">Задачи</button>
+        <button class="tab" data-view="gantt">Гант</button>
+        <button class="tab" data-view="reviews">Встречи</button>
+        <button class="tab" data-view="history">История изменений</button>
+      </div>
+      <div class="io-actions">
+        <button class="btn" id="exportBtn">Экспорт JSON</button>
+        <label class="btn file-btn">Импорт JSON<input type="file" id="importInput" accept=".json,application/json"></label>
+      </div>
+    </section>
+
+    <section class="filters" id="filters">
+      <label>Вертикаль
+        <select id="verticalFilter">
+          <option value="">Все</option>
+          <option>B2B</option>
+          <option>B2G</option>
+          <option>Каршеринг</option>
+          <option>Такси</option>
+          <option>Все вертикали</option>
+        </select>
+      </label>
+      <label>Статус
+        <select id="statusFilter">
+          <option value="">Все</option>
+          <option>Новая</option>
+          <option>В работе</option>
+          <option>На контроле</option>
+          <option>Блокер</option>
+          <option>Готово</option>
+          <option>Отложено</option>
+        </select>
+      </label>
+      <label>Ответственный
+        <select id="ownerFilter"><option value="">Все</option></select>
+      </label>
+      <label class="search-label">Поиск
+        <input id="searchFilter" placeholder="проект, задача, комментарий">
+      </label>
+      <button class="btn" id="clearFiltersBtn">Сбросить</button>
+    </section>
+
+    <section id="tasksView" class="view active">
+      <div class="section-head">
+        <div>
+          <h2>Задачи текущего цикла</h2>
+          <p>Каждое изменение статуса, срока или содержания фиксируется в истории.</p>
+        </div>
+        <div class="legend">
+          <span><i class="dot changed"></i> изменено после последнего ревью</span>
+          <span><i class="dot overdue"></i> просрочено</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th>Вертикаль</th>
+              <th>Проект</th>
+              <th>Задача</th>
+              <th>Ответственный</th>
+              <th>Статус</th>
+              <th>Приоритет</th>
+              <th>Прогресс</th>
+              <th>Срок</th>
+              <th>Изменено</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+      <div id="emptyTasks" class="empty hidden">По выбранным фильтрам задач нет.</div>
+    </section>
+
+    <section id="ganttView" class="view">
+      <div class="section-head">
+        <div>
+          <h2>Диаграмма Ганта</h2>
+          <p>Показывает период исполнения задач и контрольную точку следующего понедельника.</p>
+        </div>
+      </div>
+      <div class="gantt-shell" id="gantt"></div>
+    </section>
+
+    <section id="reviewsView" class="view">
+      <div class="section-head">
+        <div>
+          <h2>Протокол встреч</h2>
+          <p>Снимок состояния задач на момент еженедельного ревью.</p>
+        </div>
+      </div>
+      <div id="reviewList" class="card-list"></div>
+    </section>
+
+    <section id="historyView" class="view">
+      <div class="section-head">
+        <div>
+          <h2>История изменений</h2>
+          <p>Кто и что поменял в задачах между встречами.</p>
+        </div>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+  </main>
+
+  <div class="modal hidden" id="taskModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow dark">ЗАДАЧА</div>
+          <h2 id="modalTitle">Новая задача</h2>
+        </div>
+        <button class="icon-btn" id="closeModalBtn" aria-label="Закрыть">×</button>
+      </div>
+      <form id="taskForm">
+        <input type="hidden" id="taskId">
+        <div class="form-grid">
+          <label>Вертикаль
+            <select id="taskVertical" required>
+              <option>B2B</option>
+              <option>B2G</option>
+              <option>Каршеринг</option>
+              <option>Такси</option>
+              <option>Все вертикали</option>
+            </select>
+          </label>
+          <label>Проект / компания
+            <input id="taskProject" required placeholder="Например: CMMT / проект">
+          </label>
+          <label class="wide">Задача
+            <textarea id="taskTitle" required rows="3"></textarea>
+          </label>
+          <label>Ответственный
+            <input id="taskOwner" placeholder="ФИО">
+          </label>
+          <label>Статус
+            <select id="taskStatus">
+              <option>Новая</option>
+              <option>В работе</option>
+              <option>На контроле</option>
+              <option>Блокер</option>
+              <option>Готово</option>
+              <option>Отложено</option>
+            </select>
+          </label>
+          <label>Приоритет
+            <select id="taskPriority">
+              <option>Высокий</option>
+              <option selected>Средний</option>
+              <option>Низкий</option>
+            </select>
+          </label>
+          <label>Прогресс, %
+            <input id="taskProgress" type="number" min="0" max="100" step="5" value="0">
+          </label>
+          <label>Дата постановки
+            <input id="taskStart" type="date" required>
+          </label>
+          <label>Срок
+            <input id="taskDue" type="date" required>
+          </label>
+          <label class="wide">Результат / комментарий
+            <textarea id="taskResult" rows="3" placeholder="Что должно быть получено к следующему ревью"></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn danger hidden" id="deleteTaskBtn">Удалить</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn" id="cancelModalBtn">Отмена</button>
+          <button type="submit" class="btn primary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer>ATOM BCC · Weekly Project Review MVP · данные хранятся локально в браузере.</footer>
+  <script src="./weekly-review.js?v=0.1.0"></script>
+</body>
+</html>
