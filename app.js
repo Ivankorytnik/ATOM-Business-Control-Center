@@ -101,6 +101,16 @@ const meta=()=>load(LOCAL_META_KEY,{});
 const setMeta=(key,ts)=>{const m=meta();m[key]=ts;localStorage.setItem(LOCAL_META_KEY,JSON.stringify(m));};
 const localTs=key=>meta()[key]||'';
 const nowIso=()=>new Date().toISOString();
+function updateBuildTimestamp(){
+  const el=document.getElementById('buildUpdatedAt');
+  if(!el)return;
+  const d=new Date(document.lastModified);
+  if(Number.isNaN(d.getTime())){el.textContent='—';return;}
+  el.textContent=new Intl.DateTimeFormat('ru-RU',{
+    day:'2-digit',month:'2-digit',year:'numeric',
+    hour:'2-digit',minute:'2-digit'
+  }).format(d).replace(',','');
+}
 
 function saveJson(key,value){
   const ts=nowIso();
@@ -760,6 +770,7 @@ async function pullRemote(){
 
 window.addEventListener('storage',e=>{if(CLOUD_KEYS.includes(e.key))render(currentView);});
 ensureWeeklyTasks();
+updateBuildTimestamp();
 render();
 hydrate();
 setInterval(pullRemote,15000);
