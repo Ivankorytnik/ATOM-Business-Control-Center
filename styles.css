@@ -62,3 +62,7 @@ footer{padding:16px 28px;font-size:12px;color:#6b7d7e;border-top:1px solid var(-
 .task-overdue{background:#fff7f6}
 @media(max-width:950px){.task-form-grid{grid-template-columns:1fr 1fr}.task-form-grid .task-wide{grid-column:1/-1}}
 @media(max-width:620px){.task-form-grid{grid-template-columns:1fr}.task-form-grid .task-wide{grid-column:auto}.task-actions{flex-direction:column}}
+
+.gantt-week{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.gantt-week b{font-size:11px;color:var(--text)}
+.gantt-week small{font-size:9px;color:var(--muted);font-weight:400}
