@@ -134,6 +134,28 @@ const weeklyTasks=()=>load(WEEKLY_TASKS_KEY,[]);
 const b2bTeam=()=>load(B2B_TEAM_KEY,[]);
 const saveLocalJson=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 const B2B_TEAM_STATUSES=['Активен','Отпуск','Пауза'];
+const SOURCE_WEEKLY_TASKS=[["SM-01",1,"Решения прошлого штаба","Привести показатели к единому пониманию","В отчете нет показателей, которые требуют устного объяснения","Владелец Sales Plan / аналитика"],["SM-02",2,"Решения прошлого штаба","Разделить план и факт","Отдельно показаны план производства, план отгрузки, факт отгрузки, ЭПТС план/факт и план выдач","Аналитика"],["SM-03",3,"Решения прошлого штаба","Разделить подтвержденный объем и прогноз","У каждого объема есть статус: Подтверждено / Не подтверждено / Прогноз / Перенесено / Отменено","Менеджеры вертикалей"],["SM-04",4,"Решения прошлого штаба","Проверить клиентские проекты","Проверены клиент, вертикаль, регион, объем, срок отгрузки, срок выдачи, статус и подтверждение","Менеджеры"],["SM-05",5,"Решения прошлого штаба","Отработать неподтвержденные объемы","По каждой позиции есть результат: подтверждено / изменен объем / перенесено / отменено","Менеджеры"],["SM-06",6,"Решения прошлого штаба","Уточнить сроки","Вместо общих периодов указан максимально точный известный месяц, неделя или диапазон дат","Менеджеры"],["SM-07",7,"Решения прошлого штаба","Актуализировать объемы","Старые или завышенные объемы исправлены, существенные изменения имеют причину","Менеджеры"],["SM-08",8,"Решения прошлого штаба","Убрать неактуальные проекты","Неактуальные сделки не увеличивают общую воронку","Менеджеры"],["SM-09",9,"Решения прошлого штаба","Определить показатель «Контракты B2B»","Зафиксировано, что считается контрактом, на каком этапе, из какой системы и как рассчитывается","B2B + аналитика"],["SM-10",10,"Решения прошлого штаба","Определить источники цифр","Есть первичный источник для производства, VIN, ЭПТС, отгрузки, распределения, клиента, контракта, выдачи и свободного стока","Аналитика / владельцы систем"],["SM-11",11,"Решения прошлого штаба","Проверить ручные цифры","Нет необъяснимых вручную введенных итогов","Владелец файла + аналитика"],["SM-12",12,"Решения прошлого штаба","Сделать One Page","С одного экрана видна цепочка: Производство → Отгрузка → Распределение → Выдача → Свободный сток","Аналитика"],["SM-13",13,"Решения прошлого штаба","Разделить вертикали","На One Page отдельно видны B2C / B2B / B2G / Carsharing, с детализацией до клиента/проекта где требуется","Аналитика"],["SM-14",14,"Решения прошлого штаба","Показать свободный сток","Рассчитан свободный нераспределенный сток на конец периода","Аналитика"],["SM-15",15,"Решения прошлого штаба","Показать изменения относительно прошлого штаба","Видно: было → стало → Δ → причина","Аналитика"],["SM-16",16,"Решения прошлого штаба","Выделить существенные изменения","Подготовлен перечень крупнейших изменений по объемам, срокам и статусам","Аналитика"],["SM-17",17,"Решения прошлого штаба","Объяснить причины изменений","По каждому значимому изменению есть комментарий менеджера","Менеджеры"],["SM-18",18,"Решения прошлого штаба","Убрать рабочие вопросы со штаба","До штаба сняты вопросы по клиентам, срокам, объемам, статусам и определениям показателей","Руководители направлений + менеджеры"],["SM-19",19,"Решения прошлого штаба","Сформировать вопросы для руководства","На штаб вынесены только существенные отклонения, риски и вопросы, требующие управленческого решения","Коммерческий блок"],["SM-20",20,"Решения прошлого штаба","Провести Human in the Loop","Перед штабом проверены корректность, логика, понятность, отсутствие противоречий и управленческая ценность материала","Владелец отчета"],["SM-21",21,"Дополнительные задачи","Сделать MVP воронки ЭЛМА → Альфа","Работает сквозной сценарий: лид в ЭЛМА → квалификация → передача/создание РЛ в Альфа → актуальный этап в Альфа. Ключевые поля и статусы сопоставлены",""],["SM-22",22,"Дополнительные задачи","Отработать обращения с формы обратной связи (5 шт.)","Все 5 обращений разобраны. По каждому зафиксирован результат, ответственный и следующий шаг",""],["SM-23",23,"Дополнительные задачи","Все проекты из CMMT залить в Альфа, создать РЛ, проставить этапы","100% проектов из CMMT заведены в Альфа. По каждому создан рабочий лист и указан актуальный этап. Дубли и расхождения устранены",""],["SM-24",24,"Дополнительные задачи","Актуализировать 113 компаний в Альфа, с которыми работала предыдущая команда","Все 113 компаний проверены. По каждой принято решение: LOST или продолжить работу. Для продолжаемых проектов указан актуальный этап",""],["SM-25",25,"Дополнительные задачи","Разобрать 100 лидов в ЭЛМА, сгенерированных ИИ","По всем 100 лидам принято решение: закрыть как дисквалифицированные либо провести квалификацию. Статусы в ЭЛМА обновлены",""],["SM-26",26,"Дополнительные задачи","Настроить автоматическое формирование лида из обращения юридического лица в ЭЛМА","При поступлении обращения юридического лица лид автоматически создается в ЭЛМА. В поле «Источник лида» автоматически указывается «Обращение»",""]];
+function ensureWeeklyTasks(){
+  const list=weeklyTasks();
+  const due=localDateString(nextReviewDate().getTime());
+  const projectMap={'SM-21':'ЭЛМА → Альфа','SM-22':'Форма обратной связи','SM-23':'CMMT → Альфа','SM-24':'Альфа / база компаний','SM-25':'ЭЛМА / ИИ-лиды','SM-26':'ЭЛМА / обращения юрлиц'};
+  SOURCE_WEEKLY_TASKS.forEach(r=>{
+    const [sourceId,number,block,title,criterion,sourceOwner]=r;
+    let t=list.find(x=>x.sourceId===sourceId||String(x.title||'').trim()===title);
+    if(t){
+      t.sourceId=sourceId;t.number=number;t.block=block;t.result=t.result||criterion;t.owner=t.owner||sourceOwner;
+      t.dueDate=t.dueDate||due;t.startDate=t.startDate||'2026-09-16';
+      if(!t.project)t.project=projectMap[sourceId]||'Sales & Marketing Штаб';
+      if(!t.vertical)t.vertical=number>=21?'B2B':'Все вертикали';
+    }else{
+      list.push({id:'t-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),sourceId,number,block,
+        vertical:number>=21?'B2B':'Все вертикали',project:projectMap[sourceId]||'Sales & Marketing Штаб',title,owner:sourceOwner,
+        status:'Новая',priority:'Средний',progress:0,startDate:'2026-09-16',dueDate:due,result:criterion,createdAt:nowIso(),updatedAt:nowIso()});
+    }
+  });
+  list.sort((a,b)=>(a.number||9999)-(b.number||9999));
+  saveLocalJson(WEEKLY_TASKS_KEY,list);
+}
 const weeklyTaskOverdue=t=>t&&t.status!=='Готово'&&t.dueDate&&Date.now()>dateEndMs(t.dueDate);
 const weeklyDoneCount=()=>weeklyTasks().filter(t=>t.status==='Готово').length;
 const weeklyOpenCount=()=>weeklyTasks().filter(t=>t.status!=='Готово').length;
@@ -231,11 +253,10 @@ function overview(){
   const open=weeklyOpenCount();
   const overdue=tasks.filter(weeklyTaskOverdue);
   const taskBlockers=tasks.filter(t=>t.status==='Блокер');
-  const allBlockers=activeBlockers().length+taskBlockers.length;
+  const allBlockers=taskBlockers.length;
   const attention=[];
   overdue.forEach(t=>attention.push({title:`Просрочена задача: ${t.title}`,note:`${t.vertical||''} · ${t.project||''} · срок ${t.dueDate||'—'}`,type:'bad'}));
   taskBlockers.forEach(t=>attention.push({title:`Блокер по задаче: ${t.title}`,note:`${t.owner||'Ответственный не указан'} · ${t.project||''}`,type:'bad'}));
-  activeBlockers().forEach(b=>attention.push({title:`Блокер: ${b.description}`,note:`${b.owner||'Ответственный не указан'} · срок ${b.due||'—'}`,type:'work'}));
   return `
     <div class="project-start-card">
       <div>
@@ -326,30 +347,17 @@ function roadmap(){
 }
 
 function team(){
-  const list=b2bTeam();
-  const rows=list.map(m=>`<tr>
-    <td><input class="teamField" data-id="${m.id}" data-key="name" value="${esc(m.name||'')}" placeholder="ФИО"></td>
-    <td><input class="teamField" data-id="${m.id}" data-key="role" value="${esc(m.role||'')}" placeholder="Роль"></td>
-    <td><input class="teamField" data-id="${m.id}" data-key="area" value="${esc(m.area||'')}" placeholder="Зона ответственности"></td>
-    <td><select class="teamField" data-id="${m.id}" data-key="status">${options(B2B_TEAM_STATUSES,m.status||'Активен')}</select></td>
-    <td><button class="btn danger delTeamMember" data-id="${m.id}">Удалить</button></td>
-  </tr>`).join('');
-  return `
-    <div class="section-title"><h2>Команда B2B</h2><small>Сотрудники корпоративных продаж</small></div>
-    <div class="callout"><b>Локальный список.</b> Данные этой вкладки хранятся только в текущем браузере и не синхронизируются в публичный контур.</div>
-    <div class="card">
-      <h3 style="margin-top:0">Добавить сотрудника</h3>
-      <div class="form-grid">
-        <input id="tmName" placeholder="ФИО">
-        <input id="tmRole" placeholder="Роль / должность">
-        <input id="tmArea" placeholder="Зона ответственности">
-        <select id="tmStatus">${B2B_TEAM_STATUSES.map(x=>`<option>${x}</option>`).join('')}</select>
-        <button id="addTeamMember" class="btn primary">Добавить</button>
-      </div>
-    </div>
+  const list=b2bTeam(),taskList=weeklyTasks();
+  const rows=list.map(m=>{
+    const assigned=taskList.filter(t=>t.owner===m.name&&t.status!=='Готово');
+    const over=assigned.filter(weeklyTaskOverdue).length;
+    const bl=assigned.filter(t=>t.status==='Блокер').length;
+    return `<tr><td><input class="teamField" data-id="${m.id}" data-key="name" value="${esc(m.name||'')}" placeholder="ФИО"></td><td><input class="teamField" data-id="${m.id}" data-key="role" value="${esc(m.role||'')}" placeholder="Роль"></td><td><input class="teamField" data-id="${m.id}" data-key="area" value="${esc(m.area||'')}" placeholder="Зона ответственности"></td><td><select class="teamField" data-id="${m.id}" data-key="status">${options(B2B_TEAM_STATUSES,m.status||'Активен')}</select></td><td>${assigned.length}</td><td>${over}</td><td>${bl}</td><td><button class="btn danger delTeamMember" data-id="${m.id}">Удалить</button></td></tr>`;
+  }).join('');
+  return `<div class="section-title"><h2>Команда B2B</h2><small>нагрузка считается из задач Weekly Review</small></div>
+    <div class="card"><h3 style="margin-top:0">Добавить сотрудника</h3><div class="form-grid"><input id="tmName" placeholder="ФИО"><input id="tmRole" placeholder="Роль / должность"><input id="tmArea" placeholder="Зона ответственности"><select id="tmStatus">${B2B_TEAM_STATUSES.map(x=>`<option>${x}</option>`).join('')}</select><button id="addTeamMember" class="btn primary">Добавить</button></div></div>
     <div class="section-title"><h2>Состав команды</h2><small>${list.length} сотрудников</small></div>
-    ${list.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Сотрудник</th><th>Роль</th><th>Зона ответственности</th><th>Статус</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Сотрудники пока не добавлены.</div>'}
-  `;
+    ${list.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Сотрудник</th><th>Роль</th><th>Зона ответственности</th><th>Статус</th><th>Открыто</th><th>Просрочено</th><th>Блокеры</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Сотрудники пока не добавлены.</div>'}`;
 }
 
 function modules(){
@@ -361,24 +369,15 @@ function modules(){
 }
 
 function issues(){
-  const list=blockers();
-  const rows=list.map(b=>`<tr>
-    <td><input class="blField" data-id="${b.id}" data-key="source" value="${esc(b.source||'')}"></td>
-    <td><textarea class="blField" data-id="${b.id}" data-key="description">${esc(b.description||'')}</textarea></td>
-    <td><select class="blField" data-id="${b.id}" data-key="severity">${options(SEVERITY,b.severity)}</select></td>
-    <td><input class="blField" data-id="${b.id}" data-key="owner" value="${esc(b.owner||'')}"></td>
-    <td><input type="date" class="blField" data-id="${b.id}" data-key="due" value="${esc(b.due||'')}">${blockerOverdue(b)?'<span class="deadline-note">'+badge('Просрочен','bad')+'</span>':''}</td>
-    <td><select class="blField" data-id="${b.id}" data-key="status">${options(BLOCKER_STATUSES,b.status)}</select></td>
-    <td><textarea class="blField" data-id="${b.id}" data-key="comment">${esc(b.comment||'')}</textarea></td>
-    <td><button class="btn danger delBlocker" data-id="${b.id}">Удалить</button></td>
-  </tr>`).join('');
-  return `
-    <div class="section-title"><h2>Блокеры</h2><small>Активных: ${activeBlockers().length} · критических: ${criticalBlockers()} · просроченных: ${overdueBlockers().length}</small></div>
-    <div class="callout"><b>Обязательные поля:</b> проект / задача, описание, ответственный и срок.</div>
-    <div class="card"><h3 style="margin-top:0">Добавить блокер</h3><div class="form-grid"><input id="blSource" placeholder="Проект / задача"><input id="blDesc" placeholder="Описание проблемы"><select id="blSeverity">${SEVERITY.map(x=>`<option>${x}</option>`).join('')}</select><input id="blOwner" placeholder="Ответственный"><input id="blDue" type="date"><textarea id="blComment" placeholder="Комментарий / что нужно для снятия блокера"></textarea></div><button id="addBlocker" class="btn primary" style="margin-top:10px">Создать блокер</button></div>
-    <div class="section-title"><h2>Реестр блокеров</h2></div>
-    ${list.length?`<div class="table-wrap"><table class="table wide"><thead><tr><th>Источник</th><th>Проблема</th><th>Критичность</th><th>Ответственный</th><th>Срок</th><th>Статус</th><th>Комментарий</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Блокеров пока нет.</div>'}
-  `;
+  const list=weeklyTasks();
+  const taskBlockers=list.filter(t=>t.status==='Блокер');
+  const overdue=list.filter(t=>weeklyTaskOverdue(t)&&t.status!=='Блокер');
+  const rows=arr=>arr.map(t=>`<tr><td>${t.number||'—'}</td><td><b>${esc(t.title)}</b><span class="deadline-note">${esc(t.result||'')}</span></td><td>${esc(t.owner||'—')}</td><td>${esc(t.dueDate||'—')}</td><td>${esc(t.project||'')}</td></tr>`).join('');
+  return `<div class="section-title"><h2>Блокеры</h2><small>${taskBlockers.length}</small></div>
+    <div class="callout"><b>Единый источник:</b> блокер определяется статусом задачи. Отдельного ручного реестра блокеров больше нет.</div>
+    ${taskBlockers.length?`<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Задача</th><th>Ответственный</th><th>Контроль до</th><th>Проект</th></tr></thead><tbody>${rows(taskBlockers)}</tbody></table></div>`:'<div class="empty">Задач в статусе «Блокер» нет.</div>'}
+    <div class="section-title"><h2>Просроченные задачи</h2><small>${overdue.length}</small></div>
+    ${overdue.length?`<div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Задача</th><th>Ответственный</th><th>Контроль до</th><th>Проект</th></tr></thead><tbody>${rows(overdue)}</tbody></table></div>`:'<div class="empty">Просроченных задач нет.</div>'}`;
 }
 
 function dod(){
@@ -602,6 +601,7 @@ async function pullRemote(){
 }
 
 window.addEventListener('storage',e=>{if(CLOUD_KEYS.includes(e.key))render(currentView);});
+ensureWeeklyTasks();
 render();
 hydrate();
 setInterval(pullRemote,15000);
