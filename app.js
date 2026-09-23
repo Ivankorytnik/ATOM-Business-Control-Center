@@ -128,6 +128,28 @@ const moduleStatuses=()=>load(K.modules,{});
 const blockers=()=>load(K.blockers,[]);
 const dodManual=()=>load(K.dod,{});
 const deadlineOverrides=()=>load(K.deadlines,{});
+const WEEKLY_TASKS_KEY='atom-weekly-review-tasks-v01';
+const B2B_TEAM_KEY='atom-bcc-b2b-team-v01';
+const weeklyTasks=()=>load(WEEKLY_TASKS_KEY,[]);
+const b2bTeam=()=>load(B2B_TEAM_KEY,[]);
+const saveLocalJson=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
+const B2B_TEAM_STATUSES=['Активен','Отпуск','Пауза'];
+const weeklyTaskOverdue=t=>t&&t.status!=='Готово'&&t.dueDate&&Date.now()>dateEndMs(t.dueDate);
+const weeklyDoneCount=()=>weeklyTasks().filter(t=>t.status==='Готово').length;
+const weeklyOpenCount=()=>weeklyTasks().filter(t=>t.status!=='Готово').length;
+const weeklyProgress=()=>weeklyTasks().length?Math.round(weeklyDoneCount()/weeklyTasks().length*100):0;
+function nextReviewDate(){
+  const now=new Date(),d=new Date(now);
+  d.setHours(9,30,0,0);
+  let delta=(1-d.getDay()+7)%7;
+  if(delta===0&&now.getTime()>d.getTime())delta=7;
+  d.setDate(d.getDate()+delta);
+  return d;
+}
+function prevReviewDate(){const d=nextReviewDate();d.setDate(d.getDate()-7);return d;}
+function fmtReviewDate(d){return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);}
+function mondayStart(ms){const d=new Date(ms);d.setHours(0,0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.getTime();}
+
 
 const stageStatus=id=>stageStatuses()[id]||'Не начато';
 const moduleStatus=i=>moduleStatuses()[i]||'Не начато';
@@ -180,7 +202,7 @@ function statusBadge(status){
 }
 
 function updateHeader(){
-  const p=implementationReadiness();
+  const p=weeklyProgress();
   document.getElementById('headerProgress').textContent=p+'%';
   document.getElementById('headerProgressBar').style.width=p+'%';
 }
@@ -195,8 +217,8 @@ function syncOkLabel(){return 'Синхронизировано '+new Intl.DateT
 function render(view=currentView){
   currentView=view;
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const views={overview,gantt,roadmap,teams,modules,issues,dod,architecture};
-  app.innerHTML=views[view]();
+  const views={overview,gantt,team,issues};
+  app.innerHTML=(views[view]||overview)();
   bind();
   updateHeader();
   updateClock();
@@ -204,65 +226,81 @@ function render(view=currentView){
 document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>render(btn.dataset.view)));
 
 function overview(){
-  const ts=localStorage.getItem(K.start);
-  const modulesReady=DATA.modules.filter((_,i)=>moduleStatus(i)==='Готово').length;
-  const completedStages=DATA.stages.filter(s=>stageStatus(s.id)==='Завершено').length;
+  const tasks=weeklyTasks();
+  const done=weeklyDoneCount();
+  const open=weeklyOpenCount();
+  const overdue=tasks.filter(weeklyTaskOverdue);
+  const taskBlockers=tasks.filter(t=>t.status==='Блокер');
+  const allBlockers=activeBlockers().length+taskBlockers.length;
   const attention=[];
-  overdueStages().forEach(s=>attention.push({title:`Просрочен этап: ${s.name}`,note:`Текущий срок ${fmtDate(stageDeadlineMs(s))}`,type:'bad'}));
-  overdueBlockers().forEach(b=>attention.push({title:`Просрочен блокер: ${b.description}`,note:`${b.owner||'Не назначен'} · срок ${b.due}`,type:'bad'}));
-  activeBlockers().filter(b=>!assignedOwner(b.owner)).forEach(b=>attention.push({title:`Нет ответственного: ${b.description}`,note:b.source,type:'work'}));
-  DATA.stages.filter(s=>stageStatus(s.id)==='Блокер').forEach(s=>attention.push({title:`Этап в статусе «Блокер»: ${s.name}`,note:s.team,type:'work'}));
+  overdue.forEach(t=>attention.push({title:`Просрочена задача: ${t.title}`,note:`${t.vertical||''} · ${t.project||''} · срок ${t.dueDate||'—'}`,type:'bad'}));
+  taskBlockers.forEach(t=>attention.push({title:`Блокер по задаче: ${t.title}`,note:`${t.owner||'Ответственный не указан'} · ${t.project||''}`,type:'bad'}));
+  activeBlockers().forEach(b=>attention.push({title:`Блокер: ${b.description}`,note:`${b.owner||'Ответственный не указан'} · срок ${b.due||'—'}`,type:'work'}));
   return `
     <div class="project-start-card">
-      <div><div class="label">Статус проекта</div><div class="project-state">${started()?'Проект запущен':'Не начат'}</div><div class="start-meta">${ts?'Старт: '+fmtStart(ts):'Проект еще не начат'}</div></div>
-      <div><div class="label">Время в проекте</div><div id="projectTimer" class="project-timer">00 дн. 00:00:00</div></div>
-      <button id="startBtn" class="btn primary" ${started()?'disabled':''}>${started()?'Проект запущен':'Старт проекта'}</button>
+      <div>
+        <div class="label">Текущий цикл ревью</div>
+        <div class="project-state">${fmtReviewDate(prevReviewDate())} → ${fmtReviewDate(nextReviewDate())}</div>
+        <div class="start-meta">Ревью проектов B2B · B2G · Каршеринг · Такси проходит каждый понедельник в 09:30</div>
+      </div>
+      <div>
+        <div class="label">Открытые задачи</div>
+        <div class="project-timer">${open}</div>
+        <div class="start-meta">из ${tasks.length} задач</div>
+      </div>
+      <a class="btn primary" href="./weekly-review.html">Открыть задачи</a>
     </div>
     <div class="grid">
-      <div class="card kpi"><div class="label">Готовность внедрения</div><div class="value">${implementationReadiness()}%</div>${progress(implementationReadiness())}<div class="sub">этапы 50% · модули 25% · DoD 15% · владельцы 10%</div></div>
-      <div class="card kpi"><div class="label">Выполнение этапов</div><div class="value">${stageScore()}%</div>${progress(stageScore())}<div class="sub">завершено ${completedStages} из ${DATA.stages.length}</div></div>
-      <div class="card kpi"><div class="label">Модули готовы</div><div class="value">${modulesReady} / ${DATA.modules.length}</div><div class="sub">готовность модулей ${moduleScore()}%</div></div>
-      <div class="card kpi"><div class="label">Критические блокеры</div><div class="value">${criticalBlockers()}</div><div class="sub">активных всего ${activeBlockers().length}</div></div>
+      <div class="card kpi"><div class="label">Выполнение задач</div><div class="value">${weeklyProgress()}%</div>${progress(weeklyProgress())}<div class="sub">готово ${done} из ${tasks.length}</div></div>
+      <div class="card kpi"><div class="label">Просрочено</div><div class="value">${overdue.length}</div><div class="sub">требуют решения до следующего ревью</div></div>
+      <div class="card kpi"><div class="label">Блокеры</div><div class="value">${allBlockers}</div><div class="sub">задачи + отдельный реестр</div></div>
+      <div class="card kpi"><div class="label">Команда B2B</div><div class="value">${b2bTeam().length}</div><div class="sub">сотрудников в рабочем списке</div></div>
     </div>
-    <div class="grid" style="margin-top:14px">
-      <div class="card kpi"><div class="label">Владельцы назначены</div><div class="value">${ownerReadyCount()} / ${DATA.teams.length}</div><div class="sub">готовность RACI ${ownerScore()}%</div></div>
-      <div class="card kpi"><div class="label">Definition of Done</div><div class="value">${dodReadyCount()} / ${DATA.dod.length}</div><div class="sub">выполнено ${dodScore()}%</div></div>
-      <div class="card kpi"><div class="label">Просроченные этапы</div><div class="value">${overdueStages().length}</div><div class="sub">по текущим срокам</div></div>
-      <div class="card kpi"><div class="label">Просроченные блокеры</div><div class="value">${overdueBlockers().length}</div><div class="sub">без владельца или срока: ${incompleteBlockers()}</div></div>
-    </div>
-    <div class="section-title"><h2>Цель внедрения</h2></div>
-    <div class="callout"><b>${DATA.goal}</b><br><br>BCC сначала используется для управления собственным внедрением. После приемки он становится постоянным рабочим центром управления бизнесом.</div>
-    <div class="section-title"><h2>Требует внимания</h2><small>${attention.length?'показаны текущие отклонения':'критических отклонений нет'}</small></div>
-    ${attention.length?`<div class="attention-list">${attention.slice(0,10).map(a=>`<div class="attention-item"><div><b>${esc(a.title)}</b><small>${esc(a.note)}</small></div>${badge(a.type==='bad'?'Требует действия':'Контроль',a.type)}</div>`).join('')}</div>`:'<div class="empty">На текущий момент система не видит просрочек, незакрытых назначений или этапов в статусе «Блокер».</div>'}
+    <div class="section-title"><h2>Требует внимания</h2><small>${attention.length?'текущие отклонения':'отклонений нет'}</small></div>
+    ${attention.length?`<div class="attention-list">${attention.slice(0,12).map(a=>`<div class="attention-item"><div><b>${esc(a.title)}</b><small>${esc(a.note)}</small></div>${badge(a.type==='bad'?'Требует действия':'Контроль',a.type)}</div>`).join('')}</div>`:'<div class="empty">Просроченных задач и активных блокеров сейчас нет.</div>'}
   `;
 }
 
 function gantt(){
-  const base=projectBase();
-  let maxOffset=90;
-  DATA.stages.forEach(s=>{
-    const current=stageDeadlineIso(s);
-    const offset=Math.ceil((dateEndMs(current)-base)/86400000);
-    maxOffset=Math.max(maxOffset,offset);
-  });
-  const horizon=Math.max(90,maxOffset+7);
+  const tasks=weeklyTasks().filter(t=>t.startDate&&t.dueDate);
+  if(!tasks.length){
+    return '<div class="section-title"><h2>Диаграмма Ганта по задачам</h2></div><div class="empty">Нет задач с датой постановки и сроком. Добавьте задачи в Weekly Project Review.</div>';
+  }
+  const starts=tasks.map(t=>dateStartMs(t.startDate));
+  const ends=tasks.map(t=>dateEndMs(t.dueDate));
+  let start=mondayStart(Math.min(...starts,prevReviewDate().getTime()));
+  let end=Math.max(...ends,nextReviewDate().getTime());
+  const minHorizon=28*86400000;
+  if(end-start<minHorizon)end=start+minHorizon;
+  const horizon=Math.max(1,Math.ceil((end-start)/86400000));
   const weeks=Math.ceil(horizon/7);
+  const weekHead=Array.from({length:weeks},(_,i)=>{
+    const d=new Date(start+i*7*86400000);
+    return `<div class="gantt-week">${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}</div>`;
+  }).join('');
   const gridStep=100/weeks;
-  const weekHead=Array.from({length:weeks},(_,i)=>`<div class="gantt-week">Н${i+1}</div>`).join('');
-  const rows=DATA.stages.map(s=>{
-    const planLeft=s.start/horizon*100;
-    const planWidth=Math.max(1.2,(s.end-s.start)/horizon*100);
-    const ext=extendedDays(s);
-    let extra='';
-    if(ext>0){extra=`<div class="gantt-extension" style="left:${s.end/horizon*100}%;width:${ext/horizon*100}%"></div>`;}
-    if(ext<0){const currentOffset=(dateStartMs(stageDeadlineIso(s))-base)/86400000;extra=`<div class="gantt-marker" title="Срок сокращен" style="left:${Math.max(0,currentOffset/horizon*100)}%"></div>`;}
-    return `<div class="gantt-row"><div class="gantt-task"><b>${esc(s.name)}</b><small>${fmtDate(planStartMs(s))} - ${fmtDate(stageDeadlineMs(s))}${ext>0?` · продлен +${ext} дн.`:ext<0?` · сокращен ${Math.abs(ext)} дн.`:''}</small></div><div class="gantt-track"><div class="gantt-grid" style="background:repeating-linear-gradient(to right,transparent 0,transparent calc(${gridStep}% - 1px),var(--line) calc(${gridStep}% - 1px),var(--line) ${gridStep}%)"></div><div class="gantt-bar" style="left:${planLeft}%;width:${planWidth}%"></div>${extra}</div></div>`;
+  const reviewLeft=Math.max(0,Math.min(100,(nextReviewDate().getTime()-start)/(end-start)*100));
+  const rows=tasks.sort((a,b)=>dateStartMs(a.startDate)-dateStartMs(b.startDate)).map(t=>{
+    const s=dateStartMs(t.startDate),e=dateEndMs(t.dueDate);
+    const left=Math.max(0,(s-start)/(end-start)*100);
+    const width=Math.max(1.2,(e-s)/(end-start)*100);
+    const cls=t.status==='Блокер'?'background:#b94a4a;':t.status==='Готово'?'background:#2f9b75;':'';
+    return `<div class="gantt-row">
+      <div class="gantt-task"><b>${esc(t.title)}</b><small>${esc(t.vertical||'')} · ${esc(t.project||'')} · ${esc(t.owner||'без ответственного')} · ${esc(t.status||'')}</small></div>
+      <div class="gantt-track">
+        <div class="gantt-grid" style="background:repeating-linear-gradient(to right,transparent 0,transparent calc(${gridStep}% - 1px),var(--line) calc(${gridStep}% - 1px),var(--line) ${gridStep}%)"></div>
+        <div class="gantt-marker" title="Следующее ревью" style="left:${reviewLeft}%"></div>
+        <div class="gantt-bar" style="left:${left}%;width:${width}%;${cls}"></div>
+      </div>
+    </div>`;
   }).join('');
   return `
-    <div class="section-title"><h2>Диаграмма Ганта</h2><small>Плановые сроки и продления</small></div>
-    <div class="callout"><b>${started()?'Сроки рассчитаны от фактической даты старта проекта.':'До старта показан предварительный план от сегодняшней даты.'}</b> Темная полоса показывает базовый план, желтая часть показывает продление.</div>
-    <div class="gantt-wrap"><div class="gantt-head"><div class="gantt-task-head">Этап</div><div class="gantt-weeks" style="grid-template-columns:repeat(${weeks},1fr)">${weekHead}</div></div>${rows}</div>
-    <div class="gantt-footer"><span>Старт: <b>${fmtDate(base)}</b></span><span>Базовый план завершения: <b>${fmtDate(addDays(base,90))}</b></span><span>Горизонт отображения: <b>${horizon} дней</b></span></div>
+    <div class="section-title"><h2>Диаграмма Ганта по задачам</h2><small>Контроль сроков между еженедельными ревью</small></div>
+    <div class="callout"><b>Контрольная точка:</b> следующий понедельник, 09:30. Красная вертикальная линия показывает дату следующего ревью.</div>
+    <div class="gantt-wrap">
+      <div class="gantt-head"><div class="gantt-task-head">Задача</div><div class="gantt-weeks" style="grid-template-columns:repeat(${weeks},1fr)">${weekHead}</div></div>
+      ${rows}
+    </div>
   `;
 }
 
@@ -287,13 +325,31 @@ function roadmap(){
   `;
 }
 
-function teams(){
-  const owners=teamOwners();
-  const rows=DATA.teams.map((r,i)=>{
-    const ready=assignedOwner(owners[i]);
-    return `<tr><td><b>${esc(r[0])}</b></td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td><input class="ownerInput" data-i="${i}" value="${esc(owners[i]||'')}" placeholder="ФИО / роль"></td><td>${ready?badge('Назначен','ok'):badge('Не назначен','bad')}</td></tr>`;
-  }).join('');
-  return `<div class="section-title"><h2>Команды и RACI</h2><small>R делает · A отвечает · C консультирует</small></div><div class="callout"><b>Готовность владельцев:</b> ${ownerReadyCount()} из ${DATA.teams.length}. Значение «Не назначен» не считается назначением.</div><div class="table-wrap"><table class="table"><thead><tr><th>Команда</th><th>RACI</th><th>Роль</th><th>Ответственный</th><th>Готовность</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+function team(){
+  const list=b2bTeam();
+  const rows=list.map(m=>`<tr>
+    <td><input class="teamField" data-id="${m.id}" data-key="name" value="${esc(m.name||'')}" placeholder="ФИО"></td>
+    <td><input class="teamField" data-id="${m.id}" data-key="role" value="${esc(m.role||'')}" placeholder="Роль"></td>
+    <td><input class="teamField" data-id="${m.id}" data-key="area" value="${esc(m.area||'')}" placeholder="Зона ответственности"></td>
+    <td><select class="teamField" data-id="${m.id}" data-key="status">${options(B2B_TEAM_STATUSES,m.status||'Активен')}</select></td>
+    <td><button class="btn danger delTeamMember" data-id="${m.id}">Удалить</button></td>
+  </tr>`).join('');
+  return `
+    <div class="section-title"><h2>Команда B2B</h2><small>Сотрудники корпоративных продаж</small></div>
+    <div class="callout"><b>Локальный список.</b> Данные этой вкладки хранятся только в текущем браузере и не синхронизируются в публичный контур.</div>
+    <div class="card">
+      <h3 style="margin-top:0">Добавить сотрудника</h3>
+      <div class="form-grid">
+        <input id="tmName" placeholder="ФИО">
+        <input id="tmRole" placeholder="Роль / должность">
+        <input id="tmArea" placeholder="Зона ответственности">
+        <select id="tmStatus">${B2B_TEAM_STATUSES.map(x=>`<option>${x}</option>`).join('')}</select>
+        <button id="addTeamMember" class="btn primary">Добавить</button>
+      </div>
+    </div>
+    <div class="section-title"><h2>Состав команды</h2><small>${list.length} сотрудников</small></div>
+    ${list.length?`<div class="table-wrap"><table class="table"><thead><tr><th>Сотрудник</th><th>Роль</th><th>Зона ответственности</th><th>Статус</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Сотрудники пока не добавлены.</div>'}
+  `;
 }
 
 function modules(){
@@ -317,9 +373,9 @@ function issues(){
     <td><button class="btn danger delBlocker" data-id="${b.id}">Удалить</button></td>
   </tr>`).join('');
   return `
-    <div class="section-title"><h2>Блокеры внедрения</h2><small>Активных: ${activeBlockers().length} · критических: ${criticalBlockers()} · просроченных: ${overdueBlockers().length}</small></div>
-    <div class="callout"><b>Обязательные поля:</b> источник, описание, ответственный и срок. Этап в статусе «Блокер» создает связанную запись автоматически.</div>
-    <div class="card"><h3 style="margin-top:0">Добавить блокер</h3><div class="form-grid"><input id="blSource" placeholder="Этап / модуль"><input id="blDesc" placeholder="Описание проблемы"><select id="blSeverity">${SEVERITY.map(x=>`<option>${x}</option>`).join('')}</select><input id="blOwner" placeholder="Ответственный"><input id="blDue" type="date"><textarea id="blComment" placeholder="Комментарий / что нужно для снятия блокера"></textarea></div><button id="addBlocker" class="btn primary" style="margin-top:10px">Создать блокер</button></div>
+    <div class="section-title"><h2>Блокеры</h2><small>Активных: ${activeBlockers().length} · критических: ${criticalBlockers()} · просроченных: ${overdueBlockers().length}</small></div>
+    <div class="callout"><b>Обязательные поля:</b> проект / задача, описание, ответственный и срок.</div>
+    <div class="card"><h3 style="margin-top:0">Добавить блокер</h3><div class="form-grid"><input id="blSource" placeholder="Проект / задача"><input id="blDesc" placeholder="Описание проблемы"><select id="blSeverity">${SEVERITY.map(x=>`<option>${x}</option>`).join('')}</select><input id="blOwner" placeholder="Ответственный"><input id="blDue" type="date"><textarea id="blComment" placeholder="Комментарий / что нужно для снятия блокера"></textarea></div><button id="addBlocker" class="btn primary" style="margin-top:10px">Создать блокер</button></div>
     <div class="section-title"><h2>Реестр блокеров</h2></div>
     ${list.length?`<div class="table-wrap"><table class="table wide"><thead><tr><th>Источник</th><th>Проблема</th><th>Критичность</th><th>Ответственный</th><th>Срок</th><th>Статус</th><th>Комментарий</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Блокеров пока нет.</div>'}
   `;
@@ -405,7 +461,35 @@ function bind(){
   });
 
   document.querySelectorAll('.ownerInput').forEach(el=>el.onchange=()=>{
-    const o=teamOwners();o[el.dataset.i]=el.value.trim();saveJson(K.teams,o);render('teams');
+    const o=teamOwners();o[el.dataset.i]=el.value.trim();saveJson(K.teams,o);
+  });
+
+  const addTeam=document.getElementById('addTeamMember');
+  if(addTeam)addTeam.onclick=()=>{
+    const name=document.getElementById('tmName').value.trim();
+    const role=document.getElementById('tmRole').value.trim();
+    const area=document.getElementById('tmArea').value.trim();
+    const status=document.getElementById('tmStatus').value;
+    if(!name){alert('Укажите сотрудника');return;}
+    const list=b2bTeam();
+    list.push({id:'tm-'+Date.now().toString(36),name,role,area,status});
+    saveLocalJson(B2B_TEAM_KEY,list);
+    render('team');
+  };
+
+  document.querySelectorAll('.teamField').forEach(el=>el.onchange=()=>{
+    const list=b2bTeam();
+    const m=list.find(x=>x.id===el.dataset.id);
+    if(!m)return;
+    m[el.dataset.key]=el.value.trim();
+    saveLocalJson(B2B_TEAM_KEY,list);
+    render('team');
+  });
+
+  document.querySelectorAll('.delTeamMember').forEach(el=>el.onclick=()=>{
+    if(!confirm('Удалить сотрудника из списка?'))return;
+    saveLocalJson(B2B_TEAM_KEY,b2bTeam().filter(m=>m.id!==el.dataset.id));
+    render('team');
   });
 
   document.querySelectorAll('.dodCheck').forEach(el=>el.onchange=()=>{
