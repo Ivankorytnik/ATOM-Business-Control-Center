@@ -129,8 +129,10 @@ const blockers=()=>load(K.blockers,[]);
 const dodManual=()=>load(K.dod,{});
 const deadlineOverrides=()=>load(K.deadlines,{});
 const WEEKLY_TASKS_KEY='atom-weekly-review-tasks-v01';
+const DELETED_TASKS_KEY='atom-weekly-review-deleted-v01';
 const B2B_TEAM_KEY='atom-bcc-b2b-team-v01';
 const weeklyTasks=()=>load(WEEKLY_TASKS_KEY,[]);
+const deletedTaskIds=()=>load(DELETED_TASKS_KEY,[]);
 const b2bTeam=()=>load(B2B_TEAM_KEY,[]);
 const saveLocalJson=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 const B2B_TEAM_STATUSES=['Активен','Отпуск','Пауза'];
@@ -139,8 +141,10 @@ function ensureWeeklyTasks(){
   const list=weeklyTasks();
   const due=localDateString(nextReviewDate().getTime());
   const projectMap={'SM-21':'ЭЛМА → Альфа','SM-22':'Форма обратной связи','SM-23':'CMMT → Альфа','SM-24':'Альфа / база компаний','SM-25':'ЭЛМА / ИИ-лиды','SM-26':'ЭЛМА / обращения юрлиц'};
+  const deleted=new Set(deletedTaskIds());
   SOURCE_WEEKLY_TASKS.forEach(r=>{
     const [sourceId,number,block,title,criterion,sourceOwner]=r;
+    if(deleted.has(sourceId))return;
     let t=list.find(x=>x.sourceId===sourceId||String(x.title||'').trim()===title);
     if(t){
       t.sourceId=sourceId;t.number=number;t.block=block;t.result=t.result||criterion;t.owner=t.owner||sourceOwner;
@@ -239,7 +243,7 @@ function syncOkLabel(){return 'Синхронизировано '+new Intl.DateT
 function render(view=currentView){
   currentView=view;
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  const views={overview,gantt,team,issues};
+  const views={overview,tasks,gantt,team,issues};
   app.innerHTML=(views[view]||overview)();
   bind();
   updateHeader();
@@ -280,6 +284,134 @@ function overview(){
     <div class="section-title"><h2>Требует внимания</h2><small>${attention.length?'текущие отклонения':'отклонений нет'}</small></div>
     ${attention.length?`<div class="attention-list">${attention.slice(0,12).map(a=>`<div class="attention-item"><div><b>${esc(a.title)}</b><small>${esc(a.note)}</small></div>${badge(a.type==='bad'?'Требует действия':'Контроль',a.type)}</div>`).join('')}</div>`:'<div class="empty">Просроченных задач и активных блокеров сейчас нет.</div>'}
   `;
+}
+
+
+function taskOptions(arr,current){
+  return arr.map(x=>`<option ${x===current?'selected':''}>${esc(x)}</option>`).join('');
+}
+function tasks(){
+  const list=weeklyTasks().slice().sort((a,b)=>(a.number||9999)-(b.number||9999));
+  const owners=[...new Set(list.map(t=>t.owner).filter(Boolean))].sort();
+  const rows=list.map(t=>`<tr class="${weeklyTaskOverdue(t)?'task-overdue':''}">
+    <td>${t.number||'—'}</td>
+    <td><b>${esc(t.title||'')}</b><span class="deadline-note">${esc(t.result||'')}</span></td>
+    <td>${esc(t.project||'—')}</td>
+    <td>${esc(t.owner||'—')}</td>
+    <td>${statusBadge(t.status)}</td>
+    <td>${esc(t.startDate||'—')}</td>
+    <td>${esc(t.dueDate||'—')}${weeklyTaskOverdue(t)?'<span class="deadline-note">'+badge('Просрочено','bad')+'</span>':''}</td>
+    <td>${esc(t.block||'')}</td>
+    <td><div class="task-actions"><button class="btn taskEditBtn" data-id="${t.id}">Изменить</button><button class="btn danger taskDeleteBtn" data-id="${t.id}">Удалить</button></div></td>
+  </tr>`).join('');
+  return `
+    <div class="section-title"><h2>Задачи</h2><small>${list.length} задач</small></div>
+    <div class="callout"><b>Период задачи:</b> «Дата с» определяет начало работы, «Дата до» — контрольный срок. Диаграмма Ганта строится из этих двух дат.</div>
+    <div class="card task-editor">
+      <div class="task-editor-head"><h3 id="taskEditorTitle">Создать задачу</h3><button id="taskCancelEdit" class="btn hidden">Отменить изменение</button></div>
+      <input id="taskEditId" type="hidden">
+      <div class="task-form-grid">
+        <label>Блок<select id="taskBlock"><option>Решения прошлого штаба</option><option>Дополнительные задачи</option><option>Новые задачи ревью</option></select></label>
+        <label>Вертикаль<select id="taskVertical"><option>Все вертикали</option><option>B2B</option><option>B2G</option><option>Каршеринг</option><option>Такси</option></select></label>
+        <label class="task-wide">Задача<input id="taskTitle" placeholder="Что должно быть сделано"></label>
+        <label>Проект / компания<input id="taskProject" placeholder="Проект или компания"></label>
+        <label>Ответственный<input id="taskOwner" list="taskOwnersList" placeholder="ФИО"><datalist id="taskOwnersList">${owners.map(o=>`<option value="${esc(o)}"></option>`).join('')}</datalist></label>
+        <label>Статус<select id="taskStatus">${taskOptions(['Новая','В работе','На контроле','Блокер','Готово','Отложено'],'Новая')}</select></label>
+        <label>Дата с<input id="taskStartDate" type="date"></label>
+        <label>Дата до<input id="taskDueDate" type="date"></label>
+        <label class="task-wide">Критерий готовности<textarea id="taskResult" rows="2" placeholder="Как поймем, что задача выполнена"></textarea></label>
+        <label class="task-wide">Комментарий<textarea id="taskComment" rows="2" placeholder="Результат, причина переноса, следующий шаг"></textarea></label>
+      </div>
+      <div class="task-editor-actions"><button id="taskSaveBtn" class="btn primary">Создать задачу</button></div>
+    </div>
+    <div class="section-title"><h2>Реестр задач</h2><small>создание · изменение · удаление · контроль периода</small></div>
+    ${list.length?`<div class="table-wrap"><table class="table wide task-admin-table"><thead><tr><th>#</th><th>Задача / критерий</th><th>Проект</th><th>Ответственный</th><th>Статус</th><th>Дата с</th><th>Дата до</th><th>Блок</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Задач пока нет.</div>'}
+  `;
+}
+function resetTaskEditor(){
+  const ids=['taskEditId','taskTitle','taskProject','taskOwner','taskResult','taskComment'];
+  ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const start=document.getElementById('taskStartDate'),due=document.getElementById('taskDueDate');
+  if(start)start.value=localDateString(Date.now());
+  if(due)due.value=localDateString(nextReviewDate().getTime());
+  const st=document.getElementById('taskStatus');if(st)st.value='Новая';
+  const v=document.getElementById('taskVertical');if(v)v.value='B2B';
+  const b=document.getElementById('taskBlock');if(b)b.value='Новые задачи ревью';
+  const title=document.getElementById('taskEditorTitle');if(title)title.textContent='Создать задачу';
+  const save=document.getElementById('taskSaveBtn');if(save)save.textContent='Создать задачу';
+  document.getElementById('taskCancelEdit')?.classList.add('hidden');
+}
+function openTaskEditor(id){
+  const t=weeklyTasks().find(x=>x.id===id);if(!t)return;
+  document.getElementById('taskEditId').value=t.id;
+  document.getElementById('taskBlock').value=t.block||'Новые задачи ревью';
+  document.getElementById('taskVertical').value=t.vertical||'B2B';
+  document.getElementById('taskTitle').value=t.title||'';
+  document.getElementById('taskProject').value=t.project||'';
+  document.getElementById('taskOwner').value=t.owner||'';
+  document.getElementById('taskStatus').value=t.status||'Новая';
+  document.getElementById('taskStartDate').value=t.startDate||'';
+  document.getElementById('taskDueDate').value=t.dueDate||'';
+  document.getElementById('taskResult').value=t.result||'';
+  document.getElementById('taskComment').value=t.comment||'';
+  document.getElementById('taskEditorTitle').textContent='Изменить задачу №'+(t.number||'');
+  document.getElementById('taskSaveBtn').textContent='Сохранить изменения';
+  document.getElementById('taskCancelEdit').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function saveTaskFromEditor(){
+  const id=document.getElementById('taskEditId').value;
+  const title=document.getElementById('taskTitle').value.trim();
+  const startDate=document.getElementById('taskStartDate').value;
+  const dueDate=document.getElementById('taskDueDate').value;
+  if(!title){alert('Укажите задачу');return;}
+  if(!startDate||!dueDate){alert('Укажите период: Дата с и Дата до');return;}
+  if(dateStartMs(dueDate)<dateStartMs(startDate)){alert('Дата до не может быть раньше даты с');return;}
+  const list=weeklyTasks();
+  if(id){
+    const t=list.find(x=>x.id===id);if(!t)return;
+    Object.assign(t,{
+      block:document.getElementById('taskBlock').value,
+      vertical:document.getElementById('taskVertical').value,
+      title,
+      project:document.getElementById('taskProject').value.trim(),
+      owner:document.getElementById('taskOwner').value.trim(),
+      status:document.getElementById('taskStatus').value,
+      startDate,dueDate,
+      result:document.getElementById('taskResult').value.trim(),
+      comment:document.getElementById('taskComment').value.trim(),
+      updatedAt:nowIso()
+    });
+  }else{
+    const maxNo=Math.max(0,...list.map(t=>Number(t.number)||0));
+    list.push({
+      id:'t-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),
+      number:maxNo+1,
+      block:document.getElementById('taskBlock').value,
+      vertical:document.getElementById('taskVertical').value,
+      title,
+      project:document.getElementById('taskProject').value.trim(),
+      owner:document.getElementById('taskOwner').value.trim(),
+      status:document.getElementById('taskStatus').value,
+      priority:'Средний',progress:0,startDate,dueDate,
+      result:document.getElementById('taskResult').value.trim(),
+      comment:document.getElementById('taskComment').value.trim(),
+      createdAt:nowIso(),updatedAt:nowIso()
+    });
+  }
+  saveLocalJson(WEEKLY_TASKS_KEY,list);
+  render('tasks');
+}
+function deleteTaskFromManager(id){
+  const list=weeklyTasks(),t=list.find(x=>x.id===id);if(!t)return;
+  if(!confirm(`Удалить задачу «${t.title}»?`))return;
+  if(t.sourceId){
+    const deleted=new Set(deletedTaskIds());
+    deleted.add(t.sourceId);
+    saveLocalJson(DELETED_TASKS_KEY,[...deleted]);
+  }
+  saveLocalJson(WEEKLY_TASKS_KEY,list.filter(x=>x.id!==id));
+  render('tasks');
 }
 
 function gantt(){
@@ -427,6 +559,20 @@ function patchBlocker(id,key,value,rerender=false){
 }
 
 function bind(){
+
+  const taskSaveBtn=document.getElementById('taskSaveBtn');
+  if(taskSaveBtn)taskSaveBtn.onclick=saveTaskFromEditor;
+  const taskCancelEdit=document.getElementById('taskCancelEdit');
+  if(taskCancelEdit)taskCancelEdit.onclick=resetTaskEditor;
+  document.querySelectorAll('.taskEditBtn').forEach(el=>el.onclick=()=>openTaskEditor(el.dataset.id));
+  document.querySelectorAll('.taskDeleteBtn').forEach(el=>el.onclick=()=>deleteTaskFromManager(el.dataset.id));
+  if(currentView==='tasks'&&!document.getElementById('taskEditId')?.value){
+    const start=document.getElementById('taskStartDate');
+    const due=document.getElementById('taskDueDate');
+    if(start&&!start.value)start.value=localDateString(Date.now());
+    if(due&&!due.value)due.value=localDateString(nextReviewDate().getTime());
+  }
+
   const startBtn=document.getElementById('startBtn');
   if(startBtn)startBtn.onclick=()=>{if(started())return;saveRaw(K.start,String(Date.now()));render('overview');};
 
